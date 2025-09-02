@@ -1,76 +1,232 @@
-# playwright-tests
-Iden Challenge - Product Scraper
-This project contains a Python script that uses the Playwright library to automate the process of logging into the Iden Hiring Challenge website, navigating to the product inventory, and scraping all product data from a table with infinite scrolling.
+# Playwright Tests - Iden Challenge Product Scraper
 
-How It Works
-The script is designed to be robust and efficient, incorporating session management to avoid unnecessary logins on subsequent runs.
+A robust Python web scraping solution using Playwright to automate login, navigation, and data extraction from infinite-scrolling product tables.
 
-The main workflow is as follows:
+## 🚀 Features
 
-Session Management: The script first checks for a saved session file (iden_session.json).
+- **Session Management**: Intelligent session caching to avoid repeated logins
+- **Infinite Scroll Handling**: Automated scrolling and data extraction from dynamic tables
+- **Robust Error Handling**: Comprehensive error management and retry logic
+- **JSON Output**: Clean, structured data export
+- **Headless/Headed Mode Support**: Flexible browser execution options
 
-If a valid session file exists, it loads it into the browser context, skipping the login step.
+## 📋 Prerequisites
 
-If the session is invalid or the file doesn't exist, the script performs a full login using the provided credentials and saves the new session state (cookies, local storage) to iden_session.json for future use.
+Before running the script, ensure you have the following installed:
 
-Navigation: Once authenticated, the script navigates through the application's menu system (Menu > Data Management > Inventory > View All Products) to access the product table.
+- **Python 3.8+**
+- **pip** (Python package installer)
 
-Data Extraction: The core of the script handles the infinite-scrolling table.
+## 🛠️ Installation
 
-It first identifies the total number of products listed on the page.
+### 1. Clone the Repository
 
-It then enters a loop, scraping the currently visible products and scrolling down to load more.
+```bash
+git clone https://github.com/Vikas-j-v/playwright-tests.git
+cd playwright-tests
+```
 
-This process continues until the number of scraped products matches the total count, ensuring all data is captured.
+### 2. Create Virtual Environment (Recommended)
 
-Output: All the extracted product data is saved into a neatly formatted JSON file named products_data.json.
-
-Prerequisites
-Before you run the script, make sure you have the following installed:
-
-Python 3.8+
-
-pip (Python package installer)
-
-Setup and Installation
-Clone the repository (or download the files):
-
-git clone <your-repository-url>
-cd <your-repository-name>
-
-Create a virtual environment (recommended):
-
-# For Windows
+**Windows:**
+```bash
 python -m venv venv
 venv\Scripts\activate
+```
 
-# For macOS/Linux
+**macOS/Linux:**
+```bash
 python3 -m venv venv
 source venv/bin/activate
+```
 
-Install the required Python packages:
-This project uses Playwright. You can install it using pip.
+### 3. Install Dependencies
 
+```bash
 pip install playwright
+```
 
-Install Playwright browsers:
-Playwright requires browser binaries to be installed. Run the following command to install them (this will download Chromium, Firefox, and WebKit).
+### 4. Install Playwright Browsers
 
+```bash
 playwright install
+```
 
-Set Credentials:
-The script requires a username and password to log in.
+This command downloads the necessary browser binaries (Chromium, Firefox, and WebKit).
 
-USERNAME = "your_email"
-PASSWORD = "your_password"
+## ⚙️ Configuration
 
-Ensure these are correct before running. For better security, it's recommended to load these from environment variables instead of hardcoding them.
+### Set Credentials
 
-How to Run the Script
-Once the setup is complete, you can run the scraper with the following command:
+Create a `config.json` file in the project root with your credentials:
 
+```json
+{
+  "IDEN_USERNAME": "your_email@example.com",
+  "IDEN_PASSWORD": "your_password"
+}
+```
+
+The script will automatically load credentials from this file using the `load_credentials()` function.
+
+**Security Note**: 
+- Add `config.json` to your `.gitignore` file to prevent accidentally committing credentials
+- For production use, consider using environment variables or secure credential management systems
+
+## 🏃‍♂️ Usage
+
+### Basic Usage
+
+```bash
 python idn_challenge.py
+```
 
-You will see log messages in your terminal indicating the script's progress. By default, the script runs in "headed" mode, so you will see the browser window open and perform the automated steps.
+The script will:
+1. Check for existing session (`iden_session.json`)
+2. Login if no valid session exists
+3. Navigate to the product inventory
+4. Scrape all product data with infinite scroll handling
+5. Save results to `products_data.json`
 
-Upon successful completion, a file named products_data.json will be created in the same directory, containing all the scraped product information.
+## 📁 Project Structure
+
+```
+playwright-tests/
+├── idn_challenge.py          # Main scraping script
+├── config.json               # Configuration file (create this)
+├── iden_session.json         # Session cache (auto-generated)
+├── products_data.json        # Output data file (auto-generated)
+├── requirements.txt          # Python dependencies
+├── .gitignore               # Git ignore file
+└── README.md                # Project documentation
+```
+
+## 🔄 How It Works
+
+### Session Management
+- **First Run**: Performs full login and saves session state
+- **Subsequent Runs**: Loads saved session to skip login process
+- **Session Validation**: Automatically detects invalid sessions and re-authenticates
+
+### Navigation Flow
+1. **Session Verification**: Attempts to load existing session and verify access
+2. **Login Process**: If session invalid, performs fresh login to hiring.idenhq.com
+3. **Menu Navigation**: Navigates through: Menu → Data Management → Inventory → View All Products
+4. **Table Loading**: Clicks "Load Product Table" and waits for infinite table to appear
+
+### Data Extraction Process
+1. **Product Count Detection**: Reads total count from "Showing X of Y products" text
+2. **Table Scraping**: Uses JavaScript evaluation to extract table headers and row data
+3. **Infinite Scroll Handling**: Automatically scrolls container to load more products
+4. **Duplicate Prevention**: Uses unique ID system to avoid duplicate entries
+5. **Progress Tracking**: Real-time progress display during extraction
+6. **Data Export**: Saves complete dataset to JSON with UTF-8 encoding
+
+## 📊 Output Format
+
+The script generates `products_data.json` with the following structure:
+
+```json
+[
+  {
+    "product_id": "12345",
+    "name": "Product Name",
+    "category": "Category",
+    "price": "$99.99",
+    "stock": "Available",
+    "description": "Product description..."
+  }
+]
+```
+
+## 🔧 Customization Options
+
+### Run in Headless Mode
+
+Modify the browser launch options in `idn_challenge.py`:
+
+```python
+browser = playwright.chromium.launch(headless=True)  # Change to True
+```
+
+### Adjust Scroll Timing
+
+Customize scroll delays in the `extract_all_products_with_scrolling()` function:
+
+```python
+page.wait_for_timeout(1000)  # Adjust timing as needed
+```
+
+### Change Timeout Values
+
+Modify timeout values for different network conditions:
+
+```python
+page.wait_for_url(INSTRUCTIONS_URL, timeout=60000)  # Login timeout
+page.wait_for_selector("div.infinite-table", timeout=60000)  # Table load timeout
+```
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+1. **Configuration Errors**
+   ```
+   Error: config.json not found.
+   Error: 'IDEN_USERNAME' or 'IDEN_PASSWORD' not found in config.json.
+   ```
+   - Ensure `config.json` exists with correct field names
+   - Verify JSON syntax is valid
+
+2. **Login Failures**
+   - Check credentials in `config.json`
+   - Verify website accessibility
+   - Delete `iden_session.json` and retry
+
+3. **Incomplete Data Extraction**
+   - Script shows progress: "Scraped X / Y products"
+   - Check network connectivity
+   - Increase timeout values if needed
+
+4. **Session Issues**
+   - Script will automatically handle invalid sessions
+   - Session verification happens before navigation
+
+### Debug Mode
+
+Run with additional logging:
+
+```python
+# Add to script for detailed debugging
+import logging
+logging.basicConfig(level=logging.DEBUG)
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- [Playwright](https://playwright.dev/) - Web testing and automation framework
+- [Python](https://python.org/) - Programming language
+
+## 📞 Support
+
+If you encounter any issues or have questions:
+
+1. Check the [Issues](https://github.com/Vikas-j-v/playwright-tests/issues) section
+2. Create a new issue with detailed information
+3. Include error logs and system information
+
+---
+
+**Happy Scraping!** 🎯
