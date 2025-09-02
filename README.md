@@ -59,10 +59,10 @@ Playwright requires browser binaries to be installed. Run the following command 
 playwright install
 
 Set Credentials:
-The script requires a username and password to log in. These are currently hardcoded in idn_challenge.py.
+The script requires a username and password to log in.
 
-USERNAME = "vikas.jv@campusuvce.in"
-PASSWORD = "zsI6smuW"
+USERNAME = "your_email"
+PASSWORD = "your_password"
 
 Ensure these are correct before running. For better security, it's recommended to load these from environment variables instead of hardcoding them.
 
