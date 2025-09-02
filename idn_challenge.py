@@ -8,78 +8,81 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 LOGIN_URL = "https://hiring.idenhq.com/"
 INSTRUCTIONS_URL = "https://hiring.idenhq.com/instructions"
 CHALLENGE_URL = "https://hiring.idenhq.com/challenge"
-USERNAME = "vikas.jv@campusuvce.in"
-PASSWORD = "zsI6smuW"
 SESSION_FILE = "iden_session.json"
 OUTPUT_FILE = "products_data.json"
 
+# --- Helper Functions ---
+
+def load_credentials():
+    """
+    Loads username and password from the config.json file.
+    Provides clear error messages if the file is missing or malformed.
+    """
+    try:
+        with open("config.json", "r") as f:
+            config = json.load(f)
+            username = config.get("IDEN_USERNAME")
+            password = config.get("IDEN_PASSWORD")
+            if not username or not password:
+                print("Error: 'IDEN_USERNAME' or 'IDEN_PASSWORD' not found in config.json.")
+                sys.exit(1)
+            return username, password
+    except FileNotFoundError:
+        print("Error: config.json not found.")
+        print("Please create a 'config.json' file with your credentials.")
+        sys.exit(1)
+    except json.JSONDecodeError:
+        print("Error: Could not decode config.json. Please ensure it is a valid JSON file.")
+        sys.exit(1)
+
 # --- Main Functions ---
 
-def login_and_save_session(context, page):
+def login_and_save_session(context, page, username, password):
     """
-    Performs a fresh user login and saves the session state (cookies, local storage)
-    to a file for reuse in subsequent runs.
-
-    Args:
-        context: The browser context to save the session from.
-        page: The Playwright page object to perform login actions on.
+    Performs a fresh user login using credentials from config.json and saves the session.
     """
     print("No valid session. Logging in...")
     page.goto(LOGIN_URL)
     
-    page.get_by_label("Email").fill(USERNAME)
-    page.get_by_label("Password").fill(PASSWORD)
+    # Use the credentials passed from the main function
+    page.get_by_label("Email").fill(username)
+    page.get_by_label("Password").fill(password)
     page.locator("button[type='submit']").click()
 
-    # Smart Wait: Wait for the URL to confirm successful navigation after login.
     page.wait_for_url(INSTRUCTIONS_URL, timeout=60000)
     print("Login successful.")
     
-    # Save the authenticated state to the session file.
     context.storage_state(path=SESSION_FILE)
     print(f"Session saved to '{SESSION_FILE}'.")
+
 
 def navigate_to_products(page):
     """
     Navigates the application's menu system to reveal the product inventory table.
-    This demonstrates handling a multi-step navigation process.
-
-    Args:
-        page: The authenticated Playwright page object.
     """
     print("Navigating to product inventory...")
     
     if page.url != CHALLENGE_URL:
         page.goto(CHALLENGE_URL)
 
-    # Sequence of clicks to navigate through the menu system.
     page.get_by_role("button", name="Menu").click()
     page.get_by_text("Data Management").click()
     page.get_by_text("Inventory").click()
     page.get_by_text("View All Products").click()
 
-    # Handle the intermediate modal dialog.
     page.get_by_role("button", name="Load Product Table").click()
     print("Loading product table...")
 
-    # Smart Wait: Wait for the table's main container to be present in the DOM.
     page.wait_for_selector("div.infinite-table", timeout=60000)
     print("Product table loaded.")
+
 
 def extract_all_products_with_scrolling(page):
     """
     Scrapes all product data from a table that uses infinite scrolling.
-    This demonstrates a robust technique for handling lazy-loaded content.
-
-    Args:
-        page: The Playwright page object with the product table visible.
-
-    Returns:
-        A list of dictionaries, where each dictionary represents a product.
     """
     print("Starting scraper...")
 
-    # Robust Technique: First, find the element containing the total product count.
     total_products_locator = page.get_by_text(re.compile(r"Showing \d+ of \d+ products"))
     total_products_text = total_products_locator.inner_text()
     total_products = int(re.search(r'of (\d+)', total_products_text).group(1))
@@ -88,11 +91,9 @@ def extract_all_products_with_scrolling(page):
     all_products = []
     scroll_container_selector = "div.infinite-table"
     
-    # Loop until the number of scraped products matches the total count.
     while len(all_products) < total_products:
         last_count = len(all_products)
 
-        # Use page.evaluate to run custom JavaScript in the browser for efficiency.
         products_on_page = page.evaluate('''() => {
             const products = [];
             const table = document.querySelector('table');
@@ -122,46 +123,40 @@ def extract_all_products_with_scrolling(page):
             return products;
         }''')
 
-        # Add only new products to the master list.
         current_ids = {p.get('uniqueId') for p in all_products}
         for product in products_on_page:
             if product.get('uniqueId') not in current_ids:
                 del product['uniqueId']
                 all_products.append(product)
         
-        # A clean, single-line progress updater.
         print(f"Scraped {len(all_products)} / {total_products} products", end='\r')
         sys.stdout.flush()
 
-        # Safety break: If scrolling stops loading new products, exit the loop.
         if len(all_products) == last_count:
             print("\nScroll limit reached. Ending scrape.")
             break
         
-        # Execute JavaScript to scroll the container to the bottom.
         page.evaluate(f'document.querySelector("{scroll_container_selector}").scrollTop = document.querySelector("{scroll_container_selector}").scrollHeight')
         
         page.wait_for_timeout(1000)
 
-    print() # Final newline after the progress bar is complete.
+    print() 
     return all_products
 
-# --- Main Execution ---
 
 def main():
     """
-    Main function to orchestrate the entire web scraping process,
-    including session management and error handling.
+    Main function to orchestrate the entire web scraping process.
     """
-    # The 'with' statement manages the Playwright lifecycle (startup and shutdown).
+    # First, securely load credentials from the JSON file.
+    username, password = load_credentials()
+
     with sync_playwright() as playwright:
         browser = None
         try:
-            # All browser operations MUST happen inside the 'with' block.
             browser = playwright.chromium.launch(headless=False)
             context = None
             
-            # Proper Session Management: Check -> Load -> Verify -> Fallback
             if os.path.exists(SESSION_FILE):
                 print("Session file found. Reusing session.")
                 context = browser.new_context(storage_state=SESSION_FILE)
@@ -177,13 +172,11 @@ def main():
                 page.get_by_text("Sign out").wait_for(timeout=5000)
                 print("Session is valid.")
             except PlaywrightTimeoutError:
-                login_and_save_session(context, page)
+                login_and_save_session(context, page, username, password)
 
-            # --- Core Scraping Logic ---
             navigate_to_products(page)
             products_data = extract_all_products_with_scrolling(page)
             
-            # --- Data Export ---
             with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
                 json.dump(products_data, f, indent=4)
             
@@ -195,5 +188,7 @@ def main():
             if browser:
                 browser.close()
 
+
 if __name__ == "__main__":
     main()
+
